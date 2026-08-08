@@ -78,7 +78,7 @@ This feature demonstrates that xv6 can schedule processes based on behavior. CPU
 
 ## Diff Report
 
-The final submission guideline asks for a `diff_report.txt` comparing the original xv6 codebase with the modified xv6 codebase. The required diff should include only `.c` and `.h` files.
+For a `diff_report.txt` comparing the original xv6 codebase with the modified xv6 codebase: The required diff should include only `.c` and `.h` files.
 
 Example workflow:
 
