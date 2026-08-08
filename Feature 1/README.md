@@ -14,6 +14,18 @@ The scheduler uses three priority queues:
 
 Every new process begins in Queue 0. If a process uses its full time slice, it is treated as CPU-bound and demoted to a lower queue. If a process sleeps or yields frequently, it remains in a higher priority queue for better responsiveness.
 
+## Priority Boosting
+
+Priority boosting is added to prevent starvation. Without boosting, a long-running process could remain in Queue 2 for too long while higher-priority processes continue to run.
+
+The implementation uses a global tick counter. After every 100 timer ticks:
+
+- All processes are promoted back to Queue 0.
+- Each process's consumed tick count is reset to 0.
+- The global boost counter is reset.
+
+This allows low-priority processes to periodically get another chance at the highest priority level.
+
 ## File Organization
 
 The Feature 1 implementation is divided into kernel files and user files.
@@ -25,8 +37,8 @@ These files change the xv6 kernel behavior:
 | File | Purpose |
 | --- | --- |
 | `proc.h` | Adds per-process MLFQ fields such as `priority` and `ticks`. |
-| `proc.c` | Initializes each process at Queue 0 and changes the scheduler to scan Queue 0, then Queue 1, then Queue 2. |
-| `trap.c` | Uses timer interrupts to count CPU ticks and demote CPU-bound processes when they use their full time slice. |
+| `proc.c` | Initializes each process at Queue 0, defines the global boost counter, boosts all processes every 100 ticks, and changes the scheduler to scan Queue 0, then Queue 1, then Queue 2. |
+| `trap.c` | Uses timer interrupts to count CPU ticks, increment the global boost counter, and demote CPU-bound processes when they use their full time slice. |
 
 ### User Files
 
@@ -48,6 +60,7 @@ Expected behavior:
 
 - The CPU-bound child is demoted from Queue 0 to Queue 1 and then Queue 2.
 - The sleeping parent remains in Queue 0 or Queue 1 more often.
+- After 100 global ticks, processes are boosted back to Queue 0.
 
 ## How to Run
 
@@ -70,11 +83,12 @@ Expected scheduler output includes messages showing process IDs running in diffe
 pid 4 running in queue 0
 pid 4 running in queue 1
 pid 4 running in queue 2
+MLFQ boost: all processes moved to queue 0
 ```
 
 ## Result
 
-This feature demonstrates that xv6 can schedule processes based on behavior. CPU-heavy processes are gradually moved to lower priority queues, while interactive or sleeping processes receive faster CPU access.
+This feature demonstrates that xv6 can schedule processes based on behavior. CPU-heavy processes are gradually moved to lower priority queues, while interactive or sleeping processes receive faster CPU access. Priority boosting prevents starvation by periodically returning all processes to Queue 0.
 
 ## Diff Report
 
