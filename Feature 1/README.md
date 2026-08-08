@@ -14,13 +14,28 @@ The scheduler uses three priority queues:
 
 Every new process begins in Queue 0. If a process uses its full time slice, it is treated as CPU-bound and demoted to a lower queue. If a process sleeps or yields frequently, it remains in a higher priority queue for better responsiveness.
 
-## Main Modified Files
+## File Organization
 
-- `proc.h` - Adds per-process MLFQ fields such as priority and tick count.
-- `proc.c` - Initializes MLFQ fields and changes the scheduler to scan queues by priority.
-- `trap.c` - Uses timer interrupts to count CPU ticks and demote CPU-bound processes.
-- `Makefile` - Adds the MLFQ test program to the xv6 filesystem image.
-- `mlfqtest.c` - User-level test program for demonstrating scheduler behavior.
+The Feature 1 implementation is divided into kernel files and user files.
+
+### Kernel Files
+
+These files change the xv6 kernel behavior:
+
+| File | Purpose |
+| --- | --- |
+| `proc.h` | Adds per-process MLFQ fields such as `priority` and `ticks`. |
+| `proc.c` | Initializes each process at Queue 0 and changes the scheduler to scan Queue 0, then Queue 1, then Queue 2. |
+| `trap.c` | Uses timer interrupts to count CPU ticks and demote CPU-bound processes when they use their full time slice. |
+
+### User Files
+
+These files are used to test and run the feature from user space:
+
+| File | Purpose |
+| --- | --- |
+| `mlfqtest.c` | User-level test program that creates CPU-bound and I/O-bound behavior using `fork()`. |
+| `Makefile` | Adds `_mlfqtest` to `UPROGS` so the program is copied into the xv6 filesystem image. |
 
 ## Test Program
 
@@ -60,3 +75,34 @@ pid 4 running in queue 2
 ## Result
 
 This feature demonstrates that xv6 can schedule processes based on behavior. CPU-heavy processes are gradually moved to lower priority queues, while interactive or sleeping processes receive faster CPU access.
+
+## Diff Report
+
+The final submission guideline asks for a `diff_report.txt` comparing the original xv6 codebase with the modified xv6 codebase. The required diff should include only `.c` and `.h` files.
+
+Example workflow:
+
+```bash
+mkdir compare_repo
+cd compare_repo
+git init
+
+cp -r ../xv6-original/* .
+git add .
+git commit -m "original"
+
+cp -r ../xv6-modified/* .
+git add .
+git commit -m "modified"
+
+git diff HEAD~1 HEAD '*.c' '*.h' > ../diff_report.txt
+```
+
+For Feature 1, the diff report should include changes from files such as:
+
+- `proc.h`
+- `proc.c`
+- `trap.c`
+- `mlfqtest.c`
+
+The `Makefile` change is needed to run the test program, but it may not appear in `diff_report.txt` because the guideline asks for only `.c` and `.h` files.
