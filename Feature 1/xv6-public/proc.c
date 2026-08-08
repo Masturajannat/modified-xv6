@@ -15,6 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+int total = 0;  // global counter for MLFQ priority boosting
 extern void forkret(void);
 extern void trapret(void);
 
@@ -314,7 +315,7 @@ wait(void)
 }
 
 //PAGEBREAK: 42
-// Per-CPU provoid
+// Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
 //  - choose a process to run
@@ -335,6 +336,18 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
+    if(total >= 100){
+      struct proc *pr;
+
+      for(pr = ptable.proc; pr < &ptable.proc[NPROC]; pr++){
+        pr->priority = 0;
+        pr->ticks = 0;
+      }
+
+      total = 0;
+      cprintf("MLFQ boost: all processes moved to queue 0\n");
+    }
 
     for(q = 0; q < 3; q++){
       for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
