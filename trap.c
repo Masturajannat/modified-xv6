@@ -9,6 +9,7 @@
 #include "spinlock.h"
 
 // Interrupt descriptor table (shared by all CPUs).
+extern int total;
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
@@ -101,12 +102,27 @@ trap(struct trapframe *tf)
     exit();
 
   // Force process to give up CPU on clock tick.
-  // If interrupts were on while locks held, would need to check nlock.
-  if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
-    yield();
+// If interrupts were on while locks held, would need to check nlock.
+if(myproc() && myproc()->state == RUNNING &&
+   tf->trapno == T_IRQ0+IRQ_TIMER){
 
-  // Check if the process has been killed since we yielded
-  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
-    exit();
+  myproc()->ticks++;
+  total++;
+  if(myproc()->priority == 0 && myproc()->ticks >= 1){
+    myproc()->priority = 1;
+    myproc()->ticks = 0;
+    yield();
+  } else if(myproc()->priority == 1 && myproc()->ticks >= 2){
+    myproc()->priority = 2;
+    myproc()->ticks = 0;
+    yield();
+  } else if(myproc()->priority == 2 && myproc()->ticks >= 8){
+    myproc()->ticks = 0;
+    yield();
+  }
+}
+
+// Check if the process has been killed since we yielded
+if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
+  exit();
 }

@@ -442,3 +442,43 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+int
+sys_fdinfo(void)
+{
+  int fd;
+  struct file *f;
+  struct fdinfo *uinfo;
+  struct fdinfo kinfo;
+
+  if(argfd(0, &fd, &f) < 0)
+    return -1;
+  if(argptr(1, (char**)&uinfo, sizeof(*uinfo)) < 0)
+    return -1;
+
+  memset(&kinfo, 0, sizeof(kinfo));
+
+  kinfo.fd = fd;
+  kinfo.readable = f->readable;
+  kinfo.writable = f->writable;
+
+  if(f->type == FD_INODE){
+    kinfo.filetype = FDINFO_INODE;
+    kinfo.off = f->off;
+
+    ilock(f->ip);
+    kinfo.type = f->ip->type;
+    kinfo.dev = f->ip->dev;
+    kinfo.ino = f->ip->inum;
+    kinfo.nlink = f->ip->nlink;
+    kinfo.size = f->ip->size;
+    iunlock(f->ip);
+
+  } else if(f->type == FD_PIPE){
+    kinfo.filetype = FDINFO_PIPE;
+  } else {
+    kinfo.filetype = FDINFO_NONE;
+  }
+
+  memmove(uinfo, &kinfo, sizeof(kinfo));
+  return 0;
+}

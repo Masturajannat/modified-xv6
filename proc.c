@@ -15,6 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+int total = 0;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -88,6 +89,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->priority = 0;
+  p->ticks = 0;
 
   release(&ptable.lock);
 
@@ -312,49 +315,63 @@ wait(void)
 }
 
 //PAGEBREAK: 42
-// Per-CPU process scheduler.
+// Per-CPU provoid
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
 //  - choose a process to run
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
-void
+ void
 scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  int q;
+
   c->proc = 0;
-  
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+    if(total >= 100){
+      struct proc *pr;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      for(pr = ptable.proc; pr < &ptable.proc[NPROC]; pr++){
+        pr->priority = 0;
+        pr->ticks = 0;
+      }
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+      total = 0;
+      cprintf("MLFQ boost: all processes moved to queue 0\n");
     }
-    release(&ptable.lock);
 
+    for(q = 0; q < 3; q++){
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->state != RUNNABLE)
+          continue;
+
+        if(p->priority != q)
+          continue;
+
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+
+        cprintf("pid %d running in queue %d\n", p->pid, p->priority);
+
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        c->proc = 0;
+      }
+    }
+
+    release(&ptable.lock);
   }
 }
-
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
